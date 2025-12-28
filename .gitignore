@@ -1,0 +1,20 @@
+# macOS
+.DS_Store
+
+# Node
+node_modules
+frontend/node_modules
+
+# Vite build
+frontend/dist
+
+# Go binary + logs
+backend/newsapp
+backend/backend.log
+
+# env
+.env
+
+# IDE
+.vscode
+.idea
