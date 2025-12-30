@@ -5,9 +5,16 @@ import (
 	"log"
 	"net/http"
 	"os"
+
+	"github.com/joho/godotenv"
 )
 
 func main() {
+	// Load .env file
+	if err := godotenv.Load(); err != nil {
+		log.Println("No .env file found, using environment variables")
+	}
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/articles", articlesHandler)
 
@@ -45,7 +52,18 @@ func articlesHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	articles := sampleArticles()
+	category := r.URL.Query().Get("category")
+	if category == "" {
+		category = "general"
+	}
+
+	articles, err := fetchNews(category)
+	if err != nil {
+		log.Printf("Error fetching news: %v", err)
+		http.Error(w, "Failed to fetch news", http.StatusInternalServerError)
+		return
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(articles)
 }
