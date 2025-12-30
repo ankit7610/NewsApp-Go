@@ -1,6 +1,12 @@
 package main
 
-import "time"
+import (
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"os"
+	"time"
+)
 
 type Article struct {
 	ID      int       `json:"id"`
@@ -9,6 +15,55 @@ type Article struct {
 	Author  string    `json:"author"`
 	Date    time.Time `json:"date"`
 	URL     string    `json:"url"`
+	Image   string    `json:"image"`
+}
+
+type FinnhubArticle struct {
+	Category string `json:"category"`
+	Datetime int64  `json:"datetime"`
+	Headline string `json:"headline"`
+	ID       int    `json:"id"`
+	Image    string `json:"image"`
+	Related  string `json:"related"`
+	Source   string `json:"source"`
+	Summary  string `json:"summary"`
+	URL      string `json:"url"`
+}
+
+func fetchNews(category string) ([]Article, error) {
+	token := os.Getenv("FINNHUB_API_KEY")
+	if token == "" {
+		token = "d50frm1r01qsabpt5oc0d50frm1r01qsabpt5ocg"
+	}
+	url := fmt.Sprintf("https://finnhub.io/api/v1/news?category=%s&token=%s", category, token)
+	resp, err := http.Get(url)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed to fetch news: %s", resp.Status)
+	}
+
+	var finnhubArticles []FinnhubArticle
+	if err := json.NewDecoder(resp.Body).Decode(&finnhubArticles); err != nil {
+		return nil, err
+	}
+
+	var articles []Article
+	for _, fa := range finnhubArticles {
+		articles = append(articles, Article{
+			ID:      fa.ID,
+			Title:   fa.Headline,
+			Summary: fa.Summary,
+			Author:  fa.Source,
+			Date:    time.Unix(fa.Datetime, 0),
+			URL:     fa.URL,
+			Image:   fa.Image,
+		})
+	}
+	return articles, nil
 }
 
 func sampleArticles() []Article {
