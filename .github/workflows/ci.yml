@@ -50,9 +50,9 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Start backend
-        working-directory: backend
         run: |
-          go run . &
+          cd backend
+          nohup go run . > ../backend.log 2>&1 &
           sleep 3
         env:
           FINNHUB_API_KEY: ${{ secrets.FINNHUB_API_KEY }}
@@ -67,6 +67,12 @@ jobs:
         run: |
           npx wait-on http://localhost:5173 --timeout 30000
           npx wait-on http://localhost:8081/api/articles --timeout 30000
+
+      - name: Print backend logs on failure
+        if: failure()
+        run: |
+          echo "\n===== BACKEND LOGS =====\n"
+          cat backend.log || echo "No backend log found."
 
       - name: Run Playwright tests
         run: npx playwright test --project=chromium
