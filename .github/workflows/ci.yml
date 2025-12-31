@@ -49,10 +49,19 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
 
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.20'
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: go mod download
+
       - name: Start backend
+        working-directory: backend
         run: |
-          cd backend
-          nohup go run . > ../backend.log 2>&1 &
+          nohup go run . > backend.log 2>&1 &
           sleep 3
         env:
           FINNHUB_API_KEY: ${{ secrets.FINNHUB_API_KEY }}
@@ -70,6 +79,7 @@ jobs:
 
       - name: Print backend logs on failure
         if: failure()
+        working-directory: backend
         run: |
           echo "\n===== BACKEND LOGS =====\n"
           cat backend.log || echo "No backend log found."
