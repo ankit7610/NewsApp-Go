@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 	"sync"
 	"time"
 )
@@ -32,13 +33,20 @@ type FinnhubArticle struct {
 }
 
 func fetchNews(category string) ([]Article, error) {
-	token := os.Getenv("FINNHUB_API_KEY")
-	if token == "" {
-		return nil, fmt.Errorf("missing FINNHUB_API_KEY environment variable")
-	}
 	// Check cache first
 	if cached := getCached(category); cached != nil {
 		return cached, nil
+	}
+
+	if useSampleData() {
+		articles := sampleArticles()
+		setCached(category, articles)
+		return articles, nil
+	}
+
+	token := os.Getenv("FINNHUB_API_KEY")
+	if token == "" {
+		return nil, fmt.Errorf("missing FINNHUB_API_KEY environment variable")
 	}
 
 	base := os.Getenv("FINNHUB_BASE_URL")
@@ -77,6 +85,13 @@ func fetchNews(category string) ([]Article, error) {
 	// store in cache
 	setCached(category, articles)
 	return articles, nil
+}
+
+func useSampleData() bool {
+	if v := strings.ToLower(os.Getenv("USE_SAMPLE_DATA")); v == "1" || v == "true" || v == "yes" {
+		return true
+	}
+	return os.Getenv("CI") == "true" && os.Getenv("FINNHUB_API_KEY") == ""
 }
 
 // Simple in-memory cache for fetched articles (per category)
