@@ -10,24 +10,99 @@ type Article = {
   image?: string
 }
 
+type CacheRecord = {
+  category: string
+  ts: number
+  articles: Article[]
+}
+
+const DB_NAME = 'newsapp-cache'
+const DB_STORE = 'articles'
+const CACHE_TTL_MS = 60 * 60 * 1000 // 1 hour
+
+function openDb(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, 1)
+    req.onupgradeneeded = () => {
+      const db = req.result
+      if (!db.objectStoreNames.contains(DB_STORE)) {
+        db.createObjectStore(DB_STORE, { keyPath: 'category' })
+      }
+    }
+    req.onsuccess = () => resolve(req.result)
+    req.onerror = () => reject(req.error)
+  })
+}
+
+async function getCached(category: string): Promise<CacheRecord | null> {
+  const db = await openDb()
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(DB_STORE, 'readonly')
+    const store = tx.objectStore(DB_STORE)
+    const r = store.get(category)
+    r.onsuccess = () => resolve(r.result || null)
+    r.onerror = () => reject(r.error)
+  })
+}
+
+async function setCached(category: string, articles: Article[]) {
+  const db = await openDb()
+  return new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(DB_STORE, 'readwrite')
+    const store = tx.objectStore(DB_STORE)
+    const rec: CacheRecord = { category, ts: Date.now(), articles }
+    const r = store.put(rec)
+    r.onsuccess = () => resolve()
+    r.onerror = () => reject(r.error)
+  })
+}
+
 export default function App() {
   const [articles, setArticles] = useState<Article[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetch('/api/articles')
-      .then((res) => {
+    let mounted = true
+    async function load() {
+      setLoading(true)
+      try {
+        const cached = await getCached('general')
+        if (cached && Date.now() - cached.ts < CACHE_TTL_MS) {
+          if (mounted) setArticles(cached.articles)
+          // refresh in background
+          fetchAndUpdate(false)
+          return
+        }
+      } catch (e) {
+        console.warn('idb read failed', e)
+      }
+      await fetchAndUpdate(true)
+    }
+
+    async function fetchAndUpdate(setBusy: boolean) {
+      if (setBusy) setLoading(true)
+      try {
+        const res = await fetch('/api/articles')
         if (!res.ok) throw new Error(res.statusText)
-        return res.json()
-      })
-      .then((data: Article[]) => {
-        setArticles(data || [])
-      })
-      .catch((err) => {
+        const data: Article[] = await res.json()
+        if (mounted) setArticles(data || [])
+        try {
+          await setCached('general', data || [])
+        } catch (e) {
+          console.warn('idb write failed', e)
+        }
+      } catch (err) {
         console.error(err)
-        setArticles([])
-      })
-      .finally(() => setLoading(false))
+        if (mounted) setArticles([])
+      } finally {
+        if (setBusy && mounted) setLoading(false)
+      }
+    }
+
+    load()
+    return () => {
+      mounted = false
+    }
   }, [])
 
   return (
