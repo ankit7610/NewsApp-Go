@@ -66,6 +66,7 @@ jobs:
         env:
           FINNHUB_API_KEY: ${{ secrets.FINNHUB_API_KEY }}
           PORT: 8081
+          USE_SAMPLE_DATA: "true"
 
       - name: Start frontend dev server
         run: npm run dev &
