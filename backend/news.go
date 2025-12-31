@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"sync"
 	"time"
 )
 
@@ -35,6 +36,11 @@ func fetchNews(category string) ([]Article, error) {
 	if token == "" {
 		return nil, fmt.Errorf("missing FINNHUB_API_KEY environment variable")
 	}
+	// Check cache first
+	if cached := getCached(category); cached != nil {
+		return cached, nil
+	}
+
 	url := fmt.Sprintf("https://finnhub.io/api/v1/news?category=%s&token=%s", category, token)
 	resp, err := http.Get(url)
 	if err != nil {
@@ -63,7 +69,42 @@ func fetchNews(category string) ([]Article, error) {
 			Image:   fa.Image,
 		})
 	}
+
+	// store in cache
+	setCached(category, articles)
 	return articles, nil
+}
+
+// Simple in-memory cache for fetched articles (per category)
+var (
+	cacheMu sync.RWMutex
+	cache   = map[string]cachedEntry{}
+	// TTL for cache entries
+	cacheTTL = 60 * time.Second
+)
+
+type cachedEntry struct {
+	ts       time.Time
+	articles []Article
+}
+
+func getCached(category string) []Article {
+	cacheMu.RLock()
+	defer cacheMu.RUnlock()
+	e, ok := cache[category]
+	if !ok {
+		return nil
+	}
+	if time.Since(e.ts) > cacheTTL {
+		return nil
+	}
+	return e.articles
+}
+
+func setCached(category string, articles []Article) {
+	cacheMu.Lock()
+	defer cacheMu.Unlock()
+	cache[category] = cachedEntry{ts: time.Now(), articles: articles}
 }
 
 func sampleArticles() []Article {
