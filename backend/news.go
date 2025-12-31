@@ -41,7 +41,11 @@ func fetchNews(category string) ([]Article, error) {
 		return cached, nil
 	}
 
-	url := fmt.Sprintf("https://finnhub.io/api/v1/news?category=%s&token=%s", category, token)
+	base := os.Getenv("FINNHUB_BASE_URL")
+	if base == "" {
+		base = "https://finnhub.io"
+	}
+	url := fmt.Sprintf("%s/api/v1/news?category=%s&token=%s", base, category, token)
 	resp, err := http.Get(url)
 	if err != nil {
 		return nil, err
