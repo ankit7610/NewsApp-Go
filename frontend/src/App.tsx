@@ -68,7 +68,10 @@ export default function App() {
       try {
         const cached = await getCached('general')
         if (cached && Date.now() - cached.ts < CACHE_TTL_MS) {
-          if (mounted) setArticles(cached.articles)
+          if (mounted) {
+            setArticles(cached.articles)
+            setLoading(false)
+          }
           // refresh in background
           fetchAndUpdate(false)
           return
@@ -95,7 +98,7 @@ export default function App() {
         console.error(err)
         if (mounted) setArticles([])
       } finally {
-        if (setBusy && mounted) setLoading(false)
+        if (mounted) setLoading(false)
       }
     }
 
