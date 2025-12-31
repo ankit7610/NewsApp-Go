@@ -33,7 +33,7 @@ type FinnhubArticle struct {
 func fetchNews(category string) ([]Article, error) {
 	token := os.Getenv("FINNHUB_API_KEY")
 	if token == "" {
-		token = "d50frm1r01qsabpt5oc0d50frm1r01qsabpt5ocg"
+		return nil, fmt.Errorf("missing FINNHUB_API_KEY environment variable")
 	}
 	url := fmt.Sprintf("https://finnhub.io/api/v1/news?category=%s&token=%s", category, token)
 	resp, err := http.Get(url)
