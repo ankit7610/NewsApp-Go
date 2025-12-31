@@ -79,8 +79,8 @@ func fetchNews(category string) ([]Article, error) {
 var (
 	cacheMu sync.RWMutex
 	cache   = map[string]cachedEntry{}
-	// TTL for cache entries
-	cacheTTL = 60 * time.Second
+	// TTL for cache entries (1 hour)
+	cacheTTL = 1 * time.Hour
 )
 
 type cachedEntry struct {
